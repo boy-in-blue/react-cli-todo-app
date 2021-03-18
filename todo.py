@@ -13,11 +13,18 @@
 import uuid
 import time
 import argparse
+import json
 
 
 class Todo:
-    def __init__(self) -> None:
-        self.tasks = {}
+    def __init__(self, db: str) -> None:
+        self.db = db
+        with open(self.db, 'r') as f:
+            self.tasks = json.load(f)
+
+    def update_db(self):
+        with open(self.db, 'w') as f:
+            json.dump(self.tasks, f)
 
     def create_task(self, title: str, desc: str = None) -> int:
         """Create a task, takes title and optional description, returns uniqueid as int."""
@@ -27,8 +34,8 @@ class Todo:
             'desc': desc,
             'status': False
         }
-
         self.tasks[(uid := uuid.uuid1().int)] = task
+        self.update_db()
         return uid
 
     def list_tasks(self) -> None:
@@ -38,9 +45,10 @@ class Todo:
         print('*'*10)
 
     def delete_task_by_id(self, id: int) -> dict:
-        if id in self.tasks:
+        if (id := str(id)) in self.tasks:
             temp = self.tasks[id]
             del self.tasks[id]
+            self.update_db()
             return temp
         else:
             return {}
@@ -60,7 +68,7 @@ class Todo:
                 temp.remove(i)
                 break
             limit -= 1
-
+        self.update_db()
         return retemp
 
     # def mark_as_complete(self, limit = 1, **args) -> str:
@@ -87,9 +95,11 @@ class Todo:
         if id in self.tasks:
             if self.tasks[id]['status']:
                 self.tasks[id]['status'] = False
+                self.update_db()
                 return id
             else:
                 self.tasks[id]['status'] = True
+                self.update_db()
                 return id
         else:
             return 0
@@ -102,34 +112,59 @@ class Todo:
             elif title in j['title']:
                 if self.tasks[i]['status']:
                     self.tasks[i]['status'] = False
+                    self.update_db()
                     temp.append(i)
                 else:
                     self.tasks[i]['status'] = True
+                    self.update_db()
                     temp.append(i)
                 limit -= 1
             else:
-                break
+                pass
         return tuple(temp)
 
 
 if __name__ == '__main__':
-    todo = Todo()
+    todo = Todo('db.json')
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--create', nargs='*', action='append', metavar=('title', 'desc'), help='Create a task', type=str)
-    parser.add_argument('-r', '--remove', action='store_true')
+    group = parser.add_mutually_exclusive_group()
+    group.add_argument('-r', '--remove', action='store_true')
+    group.add_argument('-f', '--flip', action='store_true')
     parser.add_argument('-i', '--id', type=int)
     parser.add_argument('-t', '--title', type=str)
+    parser.add_argument('-l', '--limit', type=int)
     args = parser.parse_args()
     if args.create:
         for i in args.create:
             print(f'created {todo.create_task(i[0], " ".join(i[1:]))}')
+    else:
+        pass
+
     if args.remove:
         if args.id:
             print(f'removed {todo.delete_task_by_id(args.id)}')
         elif args.title:
-            print(f'removed {todo.delete_task_by_title(args.title)}')
+            if args.limit:
+                print(f'removed {todo.delete_task_by_title(args.title, args.limit)}')
+            else:
+                print(f'removed {todo.delete_task_by_title(args.title)}')
+
         else:
             print('Remove What!?')
+    else:
+        pass
+
+    if args.flip:
+        if args.id:
+            print(f'flipped {todo.flip_complete_id}')
+        elif args.title:
+            if args.limit:
+                print(f'flipped {todo.flip_complete_title(args.title, args.limit)}')
+            else:
+                print(f'flipped {todo.flip_complete_title(args.title)}')
+        else:
+            print('Flip what now!?')
     else:
         pass
 
